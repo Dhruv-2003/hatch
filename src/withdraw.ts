@@ -141,12 +141,18 @@ async function main() {
     const [withdrawal] = getWithdrawals(receipt);
     // Blocks until a dispute game covering the withdrawal's L2 block lands on L1.
     console.log("waiting for a covering dispute game (this is the prove-early window)…");
-    const output = await publicClientL1.waitToProve({
+    const proved = await publicClientL1.waitToProve({
       receipt,
       timeout: 3_600_000,
       targetChain: opSepoliaHatch,
     });
-    const args = await publicClientL2.buildProveWithdrawal({ account, output, withdrawal });
+    // waitToProve returns { game, output }; buildProveWithdrawal wants them flat.
+    const args = await publicClientL2.buildProveWithdrawal({
+      account,
+      game: proved.game,
+      output: proved.output,
+      withdrawal,
+    });
     const hash = await walletClientL1.proveWithdrawal({ ...args, chain: sepolia } as never);
     console.log(`prove tx: ${hash}`);
     const proofReceipt = await publicClientL1.waitForTransactionReceipt({ hash });

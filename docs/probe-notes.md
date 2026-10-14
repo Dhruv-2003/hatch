@@ -7,12 +7,45 @@ from the superchain registry / chain docs, then verified by reading.
 
 - Portal `0x16Fc5058F25648194471939df75CF27A2fdC48BC`, `version() = 5.8.0`
 - No oracle; `disputeGameFactory() = 0x05F9613aDB30026FFd634f38e5C4dFd30a197Fa1`
-- `respectedGameType = 9`, impl `0x19AF533Cc2A2A55786DCB8672aA5717e64213208` (same impl on
-  OP Mainnet — identify this game type's permissioned-ness during planner work)
+- `respectedGameType = 9`, impl `0x19AF533Cc2A2A55786DCB8672aA5717e64213208` — game type 9
+  is a **SuperFaultDisputeGame** (super roots, the interop-era proof system)
 - `proofMaturityDelaySeconds = 604800` (7 days)
 - `superchainConfig.paused = false`; L2 alive (block 0s stale)
-- Liveness: latest respected-type game 7 min old → healthy
-- SystemConfig `4.0.0`, owner `0xDEe57160aAfCF04c34C887B5962D0a69676d3C8B`
+- Liveness: latest respected-type game minutes old → healthy (super games post ~every 15 min)
+
+### The super-roots proving saga (2026-10-14, solved live)
+
+Proving a fresh withdrawal on today's OP Sepolia fails with viem's stock flow:
+
+1. `waitToProve` accepts a game whose `l2BlockNumber` is **a timestamp, not a block
+   number** (super games changed the field's meaning); the numeric `>=` coverage check
+   passes by accident, and the proof gets built against an L2 block from hours before the
+   withdrawal existed → on-chain revert `MerkleTrie: ran out of proof elements`.
+2. `buildProveWithdrawal` returns `l2OutputIndex: undefined` for these games.
+
+What actually works (`src/prove-super.ts`, proven on-chain, prove tx `0x941dac4e…`):
+
+- The **super root preimage rides in the game's `extraData`**:
+  `0x01 ‖ uint64 checkpointTs ‖ uint256 chainId ‖ bytes32 perChainOutputRoot` (repeating
+  per chain, sorted by chain id), and `keccak256(extraData) == game.rootClaim()`.
+- `rootClaimByChainId(chainId)` returns that chain's **Output V0 root**, whose digest is
+  `keccak256(abi.encode(bytes32(0), stateRoot, messagePasserStorageRoot, latestBlockhash))`
+  — note the portal's `OutputRootProof` struct field order is `(version, stateRoot,
+  messagePasserStorageRoot, latestBlockhash)`; block hash is **last**.
+- The covered L2 block is the block at the **checkpoint timestamp from extraData** (±0
+  blocks — timestamps are exact), not the game creation time, and not the timestamp in
+  `l2BlockNumber()`.
+- Coverage test: covered block number ≥ withdrawal's L2 block, then `eth_getProof` for
+  `keccak256(withdrawalHash ‖ 0x0)` on the message passer **at the covered block**, with
+  viem's branch-node fix (`maybeAddProofNode`).
+- Simulate before sending; the failing path reverts with
+  `MerkleTrie: ran out of proof elements`, the correct one passes.
+
+Lesson for the skill: **every withdrawal step must re-derive the proof system from
+on-chain data** — a chain can change proof systems (Bedrock → fault proofs → super roots)
+while a user is mid-exit, and library code lags. That's the strongest argument for the
+agent-in-the-loop design: hatch's fix shipped in minutes; a static tool would still be
+reverting.
 
 ## OP Mainnet (10) — class B/C, same shape as OP Sepolia
 
