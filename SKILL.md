@@ -33,9 +33,10 @@ out from SKILL.md and chain state.
 
 The full autonomous loop for such an ask:
 
-1. **Discover** — probe the chain (Part 2), scan their L1 history (Part 3), read their
-   live L2 balances + initiated-but-unproven withdrawals (Part 3.5). Report what you
-   found with the lower-bound caveat.
+1. **Discover** — probe the chain (Part 2), then read their live L2 balances +
+   initiated-but-unproven withdrawals (Part 3.5). **L1 scan only if warranted (Part 3)
+   — with a live L2 and plain ETH, skip it.** Report what you found with the
+   lower-bound caveat where a scan was used.
 2. **Plan** — classify (Part 2), compute real vs announced deadlines (Part 4), show the
    user the plan in human terms: what moves, when, what it costs, when they'll get funds.
 3. **Execute with ONE confirmation** — batch it: show every tx you intend to send in
@@ -66,8 +67,22 @@ different chain (re-probe before trusting it).
   `cast send …` command; the user runs it (keystore password, ledger button, or their
   own env var — the key never touches argv, stdin, chat, or `.env` the agent writes),
   pastes the tx hash back, and the agent picks up from the receipt. `--send` via
-  `TEST_KEY` in `.env` is a testnet-only convenience for when the user explicitly
-  volunteers a throwaway key — never the default, never on mainnet.
+  `TEST_KEY` is a testnet-only convenience for when the user explicitly volunteers a
+  throwaway key — never the default, never on mainnet.
+- **Secrets go in through the environment's own mechanism — never through a text
+  editor.** If the user chose route (d), adapt to where you are running instead of
+  telling them to hand-edit a file:
+  - **Inside Amp** (orb/thread): request the value as an Amp **secret or environment
+    variable** through Amp's own settings mechanism — the user enters it privately in
+    the UI and it never appears in chat. Do not tell them to open an editor.
+  - **Plain CLI / their own machine:** give them **one copy-paste command** they run
+    themselves — `echo 'TEST_KEY=0x…' >> /path/to/hatch/.env` — not a `nano` session.
+    Better: suggest `cast wallet import` into a foundry keystore so no plaintext key
+    sits on disk at all.
+  - After the key is set, verify by deriving the address (cast/`viem/accounts`) and
+    comparing to the withdrawal owner — print only the address match result, never the
+    key. If you cannot access the secret yourself (e.g. it's user-only), fall back to
+    the command-handover route and say so.
 - Only use contract addresses from `chains/<chain>.probe.json` produced by the probe.
   If the user pastes an address from anywhere else (search result, Discord, a "helpful"
   page), compare it to the probe output and refuse on mismatch.
@@ -189,13 +204,14 @@ user exactly what could not be verified.
 
 **The L1 scan is conditional, not default.** Decide from two facts:
 
-- **L2 RPC alive + user's funds are plain ETH** → skip the L1 scan. `l2-reader.ts`
-  (Part 3.5) gives the true native balance directly, which is strictly better than any
-  log scan. Announce this: "Your L2 is still readable, so I'm reading your balance
-  there — faster and exact."
-- **L1 scan is for:** ERC20/bridge discovery (the L2 side doesn't tell you which
+- **L2 RPC alive + user's funds are plain ETH → DO NOT run the L1 scan.** This is a
+  hard skip, not a judgment call. `l2-reader.ts` gives the true native balance directly,
+  which is strictly better than any log scan, and a redundant scan burns the user's
+  rate limits and minutes of their time. Announce the skip in one line: "Your L2 is
+  still readable, so I'm reading your balance there — faster and exact." Only scan L1
+  when one of these holds: ERC20/bridge discovery (the L2 side doesn't tell you which
   tokens came in via which bridge), a dead or unreachable L2 RPC, or cross-checking
-  what already finalized. Then run it:
+  what already finalized.
 
 ```bash
 bun src/scan.ts <l1-address> --blocks 10000   # demo window; real runs: --days <N> or --from <block>
