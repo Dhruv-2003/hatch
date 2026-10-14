@@ -16,8 +16,9 @@
  * hold ETH in a yield manager and may blacklist depositTransaction for some contracts —
  * if the probe flagged custom-bridge deltas, say so in the plan before using this.
  */
-import { http, createPublicClient, createWalletClient, encodeFunctionData, formatEther, parseEther } from "viem";
+import { http, createPublicClient, createWalletClient, decodeEventLog, encodeFunctionData, formatEther, parseEther } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { getL2TransactionHash } from "viem/op-stack";
 import { optimismSepolia, sepolia } from "viem/chains";
 import { readFileSync } from "node:fs";
 
@@ -39,6 +40,17 @@ const PORTAL_ABI = [{
   name: "depositTransaction", type: "function", stateMutability: "payable",
   inputs: [{ name: "_to", type: "address" }, { name: "_value", type: "uint256" }, { name: "_gasLimit", type: "uint64" }, { name: "_isCreation", type: "bool" }, { name: "_data", type: "bytes" }],
 }] as const;
+
+// v2 deposit event (0xb3813568…) — see SKILL.md troubleshooting
+const TD_V2 = {
+  type: "event", name: "TransactionDeposited",
+  inputs: [
+    { type: "address", name: "from", indexed: true },
+    { type: "address", name: "to", indexed: true },
+    { type: "uint256", name: "version", indexed: true },
+    { type: "bytes", name: "opaqueData" },
+  ],
+} as const;
 
 // Current-era L2ToL1MessagePasser: 3-arg initiateWithdrawal — msg.value IS the withdrawal
 // value (the 4-arg (target,gasLimit,value,data) ABI is the old version and selector-mismatches
@@ -106,7 +118,19 @@ async function main() {
     address: PORTAL, abi: PORTAL_ABI, functionName: "depositTransaction",
     args: [L2_MESSAGE_PASSER, valueWei, l2GasLimit, false, l2Calldata], value: valueWei,
   });
-  console.log(JSON.stringify({ ...request, sent: true, txHash: hash, note: "wait for derivation, then find the L2 MessagePassed log; after that it is a normal withdrawal" }, null, 2));
+  // Derive the deterministic L2 tx hash now so the agent can poll its receipt directly
+  // and adopt the withdrawal once it succeeds (rebuild → prove → resolve → finalize).
+  const r1 = await l1.getTransactionReceipt({ hash });
+  const depLog = r1.logs.find((log) => log.address.toLowerCase() === PORTAL.toLowerCase());
+  const ev = depLog ? decodeEventLog({ abi: [TD_V2], data: depLog.data, topics: depLog.topics }) : null;
+  const l2Hash = ev ? getL2TransactionHash({ log: { ...depLog!, args: { from: ev.args.from, to: ev.args.to, opaqueData: ev.args.opaqueData } } }) : null;
+  console.log(JSON.stringify({
+    ...request,
+    sent: true,
+    txHash: hash,
+    l2TxHash: l2Hash,
+    note: "wait ~1-3 min for derivation, then check the L2 receipt: status must be 'success' with a MessagePassed log (a reverted status means the L2 execution failed — see troubleshooting). Then: bun src/withdraw.ts rebuild <l2TxHash> and continue prove → resolve → finalize.",
+  }, null, 2));
 }
 
 const EST_DEPOSIT_GAS = 180_000;

@@ -2,8 +2,8 @@
 
 You (the agent) are operating `hatch`, a CLI + playbook that walks a user's withdrawals
 out of an OP Stack chain that is shutting down. This document is the complete operating
-manual. An agent with no other context should be able to take a user from "I have funds
-on a winding-down chain" to "funds are on Ethereum L1" by following only this file.
+manual. An agent with no other context should be able to take a user from a one-line ask
+to funds-on-L1 by following only this file.
 
 A withdrawal needs three things: **inclusion** (tx ordered on L2), **execution**
 (someone computes L2 state), and **proof** (an L1-verifiable root covering the block).
@@ -11,6 +11,40 @@ Forced inclusion only fixes the first. On a winding-down chain the real deadline
 the announced UI cutoff — it is the day the proposer stops posting roots. The whole job
 is: probe the chain, compute the real deadline, initiate + prove while proposals are
 still landing, then resolve/finalize on schedule.
+
+---
+
+## The ask will be vague — drive it anyway
+
+Users say things like *"I've been using this chain for a while, they're shutting down,
+withdraw all my funds."* That is a complete instruction. Do NOT push planning questions
+back at the user; derive everything yourself and only ask for what you genuinely cannot
+derive: the **address** (one question, once) and an **RPC URL** if none is configured.
+Everything else — chain identity, proof system, deadlines, scan windows, amounts,
+timing, scheduling — is yours to work out from SKILL.md and chain state.
+
+The full autonomous loop for such an ask:
+
+1. **Discover** — probe the chain (Part 2), scan their L1 history (Part 3), read their
+   live L2 balances + initiated-but-unproven withdrawals (Part 3.5). Report what you
+   found with the lower-bound caveat.
+2. **Plan** — classify (Part 2), compute real vs announced deadlines (Part 4), show the
+   user the plan in human terms: what moves, when, what it costs, when they'll get funds.
+3. **Execute with ONE confirmation** — batch it: show every tx you intend to send in
+   human terms and ask once. After that single yes, run the non-gated steps (initiate /
+   rebuild + prove, or force-include) back to back.
+4. **Schedule** the time-gated steps (resolve, finalize) per Part 6 — tell the user
+   exactly when you'll act next and that they can ignore it until then. When a
+   scheduled wake fires, re-verify the world (Part 6), act, and report.
+5. **Close** — when a finalize lands, verify the L1 receipt, confirm the ETH arrived at
+   the recipient, and update the user with balances before/after.
+
+Edge cases the vague ask might hide — handle them without extra questions when possible:
+user has tokens, not just ETH (scanner + l2-reader surface them; token withdrawals need
+approve → bridge-specific initiation — if the chain is winding down, prefer the native
+ETH path and the tokens' own L1 bridges and say what you're doing); user has multiple
+addresses (ask which ones — this is a genuine unknown); user gives an address from a
+different chain (re-probe before trusting it).
 
 ---
 
@@ -141,6 +175,26 @@ user already initiated but never proved (recovery case P1).
 Note for custom-bridge chains (Blast): deposits there route through a vault/yield
 manager rather than the portal, so L1 logs under-report — treat the scan as unreliable
 and say so in the plan.
+
+## Part 3.5 — Read the L2 side (`hatch l2` equivalent)
+
+The scanner only sees what crossed the bridge in L1 logs. Anything the user did natively
+on L2 (faucet ETH, direct receives, swaps) shows up only here — run this whenever the
+L2 RPC is alive:
+
+```bash
+bun src/l2-reader.ts <l2-address> --blocks 20000   # window can be small in demos
+```
+
+Reports: native ETH balance, ERC20 balances for tokens the scan discovered (or `--tokens`),
+and every withdrawal the user already **initiated on L2** with its live proof status.
+The initiated-but-unproven list is the P1 queue and the most time-critical thing on a
+winding-down chain — proving those must fit inside the proof window, so surface them
+first. For each unproven one: rebuild it into the state file and continue the normal flow:
+
+```bash
+bun src/withdraw.ts rebuild <l2-tx-hash>   # adopts it; then prove / prove-super as usual
+```
 
 ## Part 4 — Plan (`hatch plan` equivalent)
 

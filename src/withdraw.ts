@@ -325,7 +325,33 @@ async function main() {
     return;
   }
 
-  console.error("usage: bun src/withdraw.ts <initiate|status|next-action|prove|resolve|finalize> [--amount <eth>]");
+  if (cmd === "rebuild") {
+    // P1: adopt a withdrawal that was already initiated on L2 (e.g. by force-inclusion,
+    // or by an old UI run) into the state file, then continue prove → resolve → finalize.
+    const l2Tx = process.argv[3] as Hash;
+    if (!l2Tx?.startsWith("0x")) {
+      console.error("usage: bun src/withdraw.ts rebuild <l2-tx-hash>");
+      process.exit(2);
+    }
+    const receipt = await publicClientL2.getTransactionReceipt({ hash: l2Tx });
+    const [withdrawal] = getWithdrawals(receipt);
+    if (!withdrawal) throw new Error("no withdrawal in that receipt — was the L2 tx successful? (deposit-initiated withdrawals can revert silently)");
+    const states = loadStates();
+    const id = `wd-${Date.now()}-rebuild`;
+    states[id] = {
+      id,
+      stage: "initiated",
+      l2Tx: l2Tx,
+      l2BlockNumber: receipt.blockNumber,
+      withdrawal: Object.fromEntries(Object.entries(withdrawal).map(([k, v]) => [k, typeof v === "bigint" ? v.toString() : String(v)])),
+      notes: [`rebuilt from L2 tx ${l2Tx} (P1 adoption)`],
+    } as State;
+    save(states);
+    console.log(JSON.stringify(states[id], (_k, v) => (typeof v === "bigint" ? v.toString() : v), 2));
+    return;
+  }
+
+  console.error("usage: bun src/withdraw.ts <initiate|status|next-action|prove|resolve|finalize|rebuild> [--amount <eth>]");
   process.exit(2);
 }
 
