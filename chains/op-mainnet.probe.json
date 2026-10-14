@@ -57,5 +57,6 @@
   },
   "systemConfig": "0x229047fed2591dbec1eF1118d64F7aF3dB9EB290",
   "systemConfig.version": "4.0.0",
-  "systemConfig.owner": "0x847B5c174615B1B7fDF770882256e2D3E95b9D92"
+  "systemConfig.owner": "0x847B5c174615B1B7fDF770882256e2D3E95b9D92",
+  "verified_against": "source verified against ethereum-optimism/optimism develop (super-roots era); portal version() 5.8.0"
 }

@@ -21,6 +21,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { getL2TransactionHash } from "viem/op-stack";
 import { optimismSepolia, sepolia } from "viem/chains";
 import { readFileSync } from "node:fs";
+import { castSend, signerMode } from "./signer.ts";
 
 function env(name: string): string {
   const line = readFileSync(".env", "utf8").split("\n").find((l) => l.startsWith(name + "="));
@@ -104,11 +105,14 @@ async function main() {
   };
 
   if (!send) {
+    const mode = signerMode();
     console.log(JSON.stringify({
       ...request,
       dryRun: true,
-      cast: `cast send ${PORTAL} "depositTransaction(address,uint256,uint64,bool,bytes)" ${L2_MESSAGE_PASSER} ${valueWei} 200000 false ${l2Calldata} --value ${valueWei}`,
-      note: "dry-run default — nothing was sent. Sign with your own wallet or rerun with --send (testnet throwaway key only).",
+      cast: castSend({ to: PORTAL as `0x${string}`, signature: "depositTransaction(address,uint256,uint64,bool,bytes)", args: [L2_MESSAGE_PASSER, valueWei, l2GasLimit, false, l2Calldata], value: valueWei, mode }),
+      note: mode === "unsigned"
+        ? "dry-run default — nothing was sent. Sign with your own wallet, or rerun with --signer ledger|keystore (emits a cast command) or --send (throwaway testnet key only)."
+        : `signing via ${mode} — run the cast command above; nothing was sent by hatch.`,
     }, null, 2));
     return;
   }

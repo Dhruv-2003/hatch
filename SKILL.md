@@ -64,6 +64,12 @@ different chain (re-probe before trusting it).
   recipient.
 - Always print the real (proposer-liveness based) deadline next to any announced UI
   deadline.
+- **Signing, in order of preference** (see `src/signer.ts`): `unsigned` output is the
+  default — every tool prints the full tx request and nothing is sent. `--signer ledger`
+  and `--signer keystore` emit the exact `cast send … --ledger / --from …` command; the
+  key stays on the user's device or in foundry's encrypted keystore. `--send` (direct
+  send via the throwaway `TEST_KEY` in the gitignored `.env`) is a **testnet-only**
+  convenience — never on mainnet. No keys ever touch argv, stdin, or chat.
 - Default to dry-run. A tx is only emitted or sent after explicit confirmation. Exit
   code 3 with a JSON `{"error": …}` body means "gated, nothing was sent".
 - Be honest about uncertainty. If the chain class is X (unknown) or the case is stuck
@@ -322,6 +328,17 @@ Scheduler patterns that work:
 | scan finds no deposits for an address that definitely bridged | the portal emits the v2 `TransactionDeposited(opaqueData)` event, not the classic tuple one | scanner handles both (`0xb3813568…` topic); if you wrote your own scan, decode opaqueData (mint\|value\|gas\|isCreation\|data) |
 | portal `version()` looks like nothing on the tags list | version string ≠ release tag | strip build metadata, search tags `op-contracts/*`, read source at nearest release; note uncertainty in the plan |
 | custom bridge swallows the deposit (e.g. Blast yield manager) | chain-specific bridge holds funds in its own path | read the bridge's withdraw path at the probed version; record in plan; class X if unclear |
+
+## Command surface
+
+Everything above is reachable through one dispatcher (same flags, same output):
+
+```bash
+bun src/cli.ts init <chain> | status | scan <addr> | l2 <addr> | plan <chain> \
+  | initiate | prove | resolve | finalize | rebuild <l2tx> | force-include | next-action | list
+```
+
+`--send` / `--signer` control signing (Part 0). Exit codes are stable across all commands.
 
 ## State file schema
 

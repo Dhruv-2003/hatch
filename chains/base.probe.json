@@ -57,5 +57,6 @@
   },
   "systemConfig": "0x73a79Fab69143498Ed3712e519A88a918e1f4072",
   "systemConfig.version": "3.14.0",
-  "systemConfig.owner": "0x14536667Cd30e52C0b458BaACcB9faDA7046E056"
+  "systemConfig.owner": "0x14536667Cd30e52C0b458BaACcB9faDA7046E056",
+  "verified_against": "source verified against op-contracts/v6.0.0-era; portal version() 6.0.1"
 }

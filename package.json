@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "probe": "bun src/probe.ts"
+    "probe": "bun src/probe.ts",
+    "hatch": "bun src/cli.ts"
   },
   "dependencies": {
     "viem": "^2"

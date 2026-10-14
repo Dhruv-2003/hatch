@@ -63,5 +63,6 @@
     "blockNumber": "50069725",
     "latestBlockTimestamp": 1791941990,
     "secondsSinceLatestBlock": 0
-  }
+  },
+  "verified_against": "source verified against ethereum-optimism/optimism develop (super-roots era); portal version() 5.8.0"
 }

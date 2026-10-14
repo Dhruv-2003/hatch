@@ -69,5 +69,6 @@
     "blockNumber": "41565982",
     "latestBlockTimestamp": 1791941779,
     "secondsSinceLatestBlock": 0
-  }
+  },
+  "verified_against": "source verified against op-contracts/v1.1.0; portal version() 1.10.0"
 }

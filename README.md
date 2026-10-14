@@ -56,3 +56,57 @@ The `docs/` directory carries per-chain probe output (`probe-<chain>.md`,
 `probe-notes.md`) and research findings (`research-blast.md`). Never trust an address you
 didn't probe. Dead chains (no proposer, no data) are out of scope for code; they live in
 the research section as analysis.
+
+### Research: the P2/P3 frontier — dead chains, force-inclusion, and running your own derivation
+
+Hatch's code assumes someone is still deriving L1→L2 and posting roots/games. When that
+stops, the work moves from "run a command" to "run infrastructure". Notes for whoever
+(that can be an agent with shell access) has to go further:
+
+**Why infrastructure is the exit.** A withdrawal needs a *covering root/game* on L1 —
+that artifact is produced by whoever derives L2 blocks from L1 data and executes them.
+Derivation is deterministic and permissionless by design: given L1 (the batcher's data
+in blobs/calldata) plus an execution client, anyone can reconstruct the L2 chain. So
+even with the sequencer and proposer gone, the chain is recoverable by running a node.
+
+**The stack to run** (links to current docs; verify versions against the chain's probe):
+
+- OP Stack node ops overview: <https://docs.optimism.io/builders/node-operators/overview>
+  — op-node (consensus/derivation) + an execution client (`op-reth`, `op-gett`).
+- op-node source and derivation pipeline spec: <https://specs.optimism.io/rollup-node/rollup-node.html>
+  and <https://specs.optimism.io/protocol/derivation.html> — the normative description of
+  how L1 blocks become L2 blocks (batcher transactions, frames, the sequencing window).
+- Execution clients: <https://github.com/ethereum-optimism/op-reth> and
+  <https://github.com/ethereum-optimism/op-gett>. You need an *archive* node if you have
+  to build state/storage proofs (withdrawal Merkle proofs) for older blocks.
+- Dispute games / proving: <https://specs.optimism.io/fault-proof/index.html> and the
+  game contracts themselves (`DisputeGameFactory`, `SuperFaultDisputeGame`) at the chain's
+  probed release tag. Cannon (the on-chain VM) runs inside `op-node`-adjacent tooling:
+  <https://specs.optimism.io/fault-proof/cannon-overview.html>.
+
+**Scenario: chain dead, games were permissionless (class C).** The exit is fully in user
+hands: run the node (above), reconstruct the L2 state at a block covering your withdrawal,
+compute an honest output root, create a game via the chain's `DisputeGameFactory` (this
+requires a bond — refunded if the claim survives challenges), wait the resolution +
+finality delays, finalize. Nobody's permission is involved; the costs are bond + gas +
+the node. A lazy honest summary: *run a node, post a true root, wait out the clocks*.
+
+**Scenario: chain dead, games permissioned (class B, e.g. current OP Sepolia).** Game
+creation is locked to the (gone) proposer. Options, in order of hopefulness: (1) check
+whether the chain's upgrade key holder has published an exit plan — often migrations
+ship a final `SuperchainConfig`/portal handoff; (2) social/upgrade-key path: the keys
+that can change `respectedGameType` or re-point the portal are themselves on-chain facts
+the probe surfaces — a multisig that must act; escalate to them publicly; (3) if the
+chain has a migration to another version, follow it — proving follows the new config.
+Hatch emits this as a P3 report: exact on-chain findings, who holds which key, no false hope.
+
+**Scenario: L2 ordering alive, UI gone, withdrawals censored (classic P2).** Don't need
+a node at all if derivation still happens: force-include the initiation from L1
+(`src/force-include.ts`) — the sequencing window guarantees the deposit lands even
+under censorship — then prove/finalize normally. A node only becomes necessary when
+the sequencer/batcher has stopped deriving entirely.
+
+**Sequencing window math** (for planning force-inclusion): a censored deposit must be
+included within `sequencingWindowSize` (12 hours on current OP Stack) of its L1 block —
+read the parameter for the probed version; it sets the worst-case wait between the L1
+deposit and the L2 `MessagePassed` event.
