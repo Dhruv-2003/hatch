@@ -1,3 +1,4 @@
+import { rpcEndpoint } from "./rpc.ts";
 /**
  * hatch withdrawal flow (P0/P1) — initiate, prove, finalize, status.
  *
@@ -23,13 +24,10 @@ function env(name: string): string {
 }
 
 // RPC endpoints: explicit L1_RPC_URL / L2_RPC_URL win (lets you point the flow at
-// an anvil fork for time-warped verification); otherwise the Alchemy defaults.
-const envRpc = (fallback: string, name: string): string => {
-  const line = readFileSync(".env", "utf8").split("\n").find((l) => l.startsWith(name + "="));
-  return line ? line.slice(name.length + 1).trim() : fallback;
-};
-const L1_RPC = envRpc(`https://eth-sepolia.g.alchemy.com/v2/${env("ALCHEMY_KEY_SECONDARY")}`, "L1_RPC_URL");
-const L2_RPC = envRpc(`https://opt-sepolia.g.alchemy.com/v2/${env("ALCHEMY_KEY_PRIMARY")}`, "L2_RPC_URL");
+// an anvil fork for time-warped verification); otherwise the ALCHEMY_KEY_* value
+// (bare key or full URL — see src/rpc.ts) against the Alchemy pattern.
+const L1_RPC = rpcEndpoint("L1_RPC_URL", "ALCHEMY_KEY_SECONDARY", "eth-sepolia.g.alchemy.com");
+const L2_RPC = rpcEndpoint("L2_RPC_URL", "ALCHEMY_KEY_PRIMARY", "opt-sepolia.g.alchemy.com");
 
 // Probe output for op-sepolia — the only addresses allowed in here (skill rule:
 // addresses come from the probe, never from a chat message or web page).

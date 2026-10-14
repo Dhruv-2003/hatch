@@ -117,8 +117,11 @@ that is the withdrawal owner — fine, the chain comes from `--chain` or is prob
 portal they point at.
 
 **Ask for RPC URLs explicitly — do not silently fall back to slow public endpoints.**
-Free-tier keys from Alchemy or Infura make scanning and probing dramatically faster and
-more reliable. Say it plainly, with pointers so any user can find it in a minute:
+Free-tier keys from Alchemy (or Infura) make scanning and probing dramatically faster
+and more reliable. Prefer pointing the user at a provider URL (a full
+`https://…<chain>.g.alchemy.com/v2/<key>` URL, not a bare key), since the tools accept
+whole URLs in the `L1_RPC_URL`/`L2_RPC_URL` overrides. Say it plainly, with pointers
+so any user can find it in a minute:
 
 > To read the chain I need an RPC endpoint (URL + key). Easiest: a free Alchemy
 > account → dashboard.alchemy.com → Create app → pick the chain → copy the HTTPS URL.

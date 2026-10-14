@@ -1,3 +1,4 @@
+import { rpcEndpoint } from "./rpc.ts";
 /**
  * hatch l1-scanner — what a user bridged in, what already came out.
  *
@@ -21,7 +22,7 @@ function env(name: string): string {
   return line.slice(name.length + 1).trim();
 }
 
-const L1_RPC = `https://eth-sepolia.g.alchemy.com/v2/${env("ALCHEMY_KEY_SECONDARY")}`;
+const L1_RPC = rpcEndpoint("L1_RPC_URL", "ALCHEMY_KEY_SECONDARY", "eth-sepolia.g.alchemy.com");
 const l1 = createPublicClient({ chain: sepolia, transport: http(L1_RPC) });
 
 const EVENTS = [

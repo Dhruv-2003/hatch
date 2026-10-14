@@ -1,3 +1,4 @@
+import { rpcEndpoint } from "./rpc.ts";
 /**
  * hatch force-inclusion (P2) — initiate a withdrawal FROM L1 when the L2 can't be
  * used (UI gone, sequencer censoring withdrawals, or the user can't sign on L2).
@@ -35,8 +36,8 @@ const PROBE = JSON.parse(readFileSync("chains/op-sepolia.probe.json", "utf8"));
 const PORTAL = PROBE.portal;
 const L2_MESSAGE_PASSER = "0x4200000000000000000000000000000000000016"; // fixed per OP Stack spec (predeploys)
 
-const L1_RPC = `https://eth-sepolia.g.alchemy.com/v2/${env("ALCHEMY_KEY_SECONDARY")}`;
-const L2_RPC = `https://opt-sepolia.g.alchemy.com/v2/${env("ALCHEMY_KEY_PRIMARY")}`;
+const L1_RPC = rpcEndpoint("L1_RPC_URL", "ALCHEMY_KEY_SECONDARY", "eth-sepolia.g.alchemy.com");
+const L2_RPC = rpcEndpoint("L2_RPC_URL", "ALCHEMY_KEY_PRIMARY", "opt-sepolia.g.alchemy.com");
 
 const PORTAL_ABI = [{
   name: "depositTransaction", type: "function", stateMutability: "payable",

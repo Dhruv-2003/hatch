@@ -1,3 +1,4 @@
+import { rpcEndpoint } from "./rpc.ts";
 /**
  * Super-roots-aware withdrawal prover (OP Sepolia's current proof system).
  *
@@ -28,8 +29,8 @@ function env(name: string): string {
   return line.slice(name.length + 1).trim();
 }
 
-const L1_RPC = `https://eth-sepolia.g.alchemy.com/v2/${env("ALCHEMY_KEY_SECONDARY")}`;
-const L2_RPC = `https://opt-sepolia.g.alchemy.com/v2/${env("ALCHEMY_KEY_PRIMARY")}`;
+const L1_RPC = rpcEndpoint("L1_RPC_URL", "ALCHEMY_KEY_SECONDARY", "eth-sepolia.g.alchemy.com");
+const L2_RPC = rpcEndpoint("L2_RPC_URL", "ALCHEMY_KEY_PRIMARY", "opt-sepolia.g.alchemy.com");
 const PORTAL = "0x16Fc5058F25648194471939df75CF27A2fdC48BC";
 const DGF = "0x05F9613aDB30026FFd634f38e5C4dFd30a197Fa1";
 const MESSAGE_PASSER = "0x4200000000000000000000000000000000000016";
