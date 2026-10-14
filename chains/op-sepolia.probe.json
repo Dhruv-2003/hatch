@@ -1,0 +1,67 @@
+{
+  "name": "op-sepolia",
+  "probedAt": "2026-10-14T01:39:50.158Z",
+  "portal": "0x16Fc5058F25648194471939df75CF27A2fdC48BC",
+  "l1BlockAtProbe": {
+    "number": "11910027",
+    "timestamp": "1791941988"
+  },
+  "portal.version": "5.8.0",
+  "portal.systemConfig": "0x034edD2A225f7f429A63E0f1D2084B9E0A93b538",
+  "portal.l2Oracle": {
+    "error": "ContractFunctionExecutionError: The contract function \"l2Oracle\" reverted.\n\nContract Call:\n  address:   0x16Fc5058F25648194471939df75CF27A2fdC48BC\n  function:  "
+  },
+  "portal.disputeGameFactory": "0x05F9613aDB30026FFd634f38e5C4dFd30a197Fa1",
+  "class": "B/C (DisputeGameFactory)",
+  "disputeGameFactory": "0x05F9613aDB30026FFd634f38e5C4dFd30a197Fa1",
+  "portal.respectedGameType": 9,
+  "portal.proofMaturityDelaySeconds": "604800",
+  "portal.finalizationPeriodSeconds": {
+    "error": "ContractFunctionExecutionError: The contract function \"finalizationPeriodSeconds\" reverted.\n\nContract Call:\n  address:   0x16Fc5058F25648194471939df75CF27A2fdC4"
+  },
+  "portal.superchainConfig": "0xC2Be75506d5724086DEB7245bd260Cc9753911Be",
+  "superchainConfig.paused": false,
+  "withdrawalsPaused": false,
+  "gameTypeInterpretation": "game type 9 (non-legacy; resolve permissioned-ness from impl source / agent research)",
+  "dgf.gameImpls": "0x19AF533Cc2A2A55786DCB8672aA5717e64213208",
+  "dgf.gameCount": "89114",
+  "dgf.findLatestGames": [
+    {
+      "index": "89113",
+      "metadata": "0x00000009000000006acedbc0204a86bcd3dc3a8abbc7a869cc273a5390e5106f",
+      "timestamp": "1791941568",
+      "rootClaim": "0x27b732d0385c4e834de83c55e51d4f3ad33a4bf3c3bf5328e332203aec3cd987",
+      "extraData": "0x01000000006acedabc0000000000000000000000000000000000000000000000000000000000aa37dc325d76786abeada585ab28b092603757b0f1761321ad15f16d3875a359be768f"
+    },
+    {
+      "index": "89112",
+      "metadata": "0x00000009000000006aced824305093972113700b8f12293340669399bac469f3",
+      "timestamp": "1791940644",
+      "rootClaim": "0x759fc5ae60b39d2f670251c380866f38aa007a3216d6797a01b38a2ec47531b1",
+      "extraData": "0x01000000006aced7500000000000000000000000000000000000000000000000000000000000aa37dc8f4e77779e202b310f1c45a56d213509670469138cbbac746a45264fabef1282"
+    },
+    {
+      "index": "89111",
+      "metadata": "0x00000009000000006aced488ba2a08d2967724d7209cd970591c643718f14e81",
+      "timestamp": "1791939720",
+      "rootClaim": "0x16561a1e4a4b95c9ab73202305064ac33abaa7e04f393638134fe410be1dfad6",
+      "extraData": "0x01000000006aced3d60000000000000000000000000000000000000000000000000000000000aa37dc4ea5d53b4c202db0be303f062b351c3480a545c15885dfc2854c4672c7a1fbb8"
+    }
+  ],
+  "liveness": {
+    "latestGameIndex": 89113,
+    "latestGameProxy": "0x204a86bcd3dc3a8abbc7a869cc273a5390e5106f",
+    "gameCreatedAtL1Timestamp": 1791941568,
+    "secondsSinceLastGame": 420,
+    "human": "fresh (7m ago)"
+  },
+  "systemConfig": "0x034edD2A225f7f429A63E0f1D2084B9E0A93b538",
+  "systemConfig.version": "4.0.0",
+  "systemConfig.owner": "0xDEe57160aAfCF04c34C887B5962D0a69676d3C8B",
+  "l2": {
+    "chainId": 11155420,
+    "blockNumber": "50069725",
+    "latestBlockTimestamp": 1791941990,
+    "secondsSinceLatestBlock": 0
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "name": "blast-mainnet",
+  "probedAt": "2026-10-14T01:36:19.082Z",
+  "portal": "0x0Ec68c5B10F21EFFb74f2A5C61DFe6b08C0Db6Cb",
+  "l1BlockAtProbe": {
+    "number": "26187492",
+    "timestamp": "1791941771"
+  },
+  "portal.version": "1.10.0",
+  "portal.systemConfig": "0x5531DcfF39EC1ec727C4c5D2fc49835368F805a9",
+  "portal.l2Oracle": "0x826D1B0D4111Ad9146Eb8941D7Ca2B6a44215c76",
+  "portal.disputeGameFactory": {
+    "error": "ContractFunctionExecutionError: The contract function \"disputeGameFactory\" reverted.\n\nContract Call:\n  address:   0x0Ec68c5B10F21EFFb74f2A5C61DFe6b08C0Db6Cb\n  f"
+  },
+  "class": "A (L2OutputOracle)",
+  "oracle": "0x826D1B0D4111Ad9146Eb8941D7Ca2B6a44215c76",
+  "oracle.version": "1.6.0",
+  "oracle.FINALIZATION_PERIOD_SECONDS": "86400",
+  "oracle.proposer": "0x082b616Ec99167B2FEdee053F07db6795D4dA821",
+  "oracle.challenger": "0x4f72ee94B8ba3Be7F886565d3583A7F636c58B05",
+  "oracle.l2BlockTime": "2",
+  "oracle.startingBlockNumber": "0",
+  "oracle.latestOutputIndex": "23090",
+  "oracle.latestOutput": [
+    "0xead227c24e7d0f8c0950d3ef3c6e171625d007fbf0de0fb9ce75241230211739",
+    "1791939779",
+    "41563800"
+  ],
+  "liveness": {
+    "latestRootCoversL2Block": 41563800,
+    "rootPostedAtL1Timestamp": 1791939779,
+    "secondsSinceLastRoot": 1992,
+    "human": "fresh (33m ago)"
+  },
+  "oracle.output-23089": [
+    "0xfbe8430dd27f82ee1d46d46d69949d7b2455d01569735d6239b871b7934b26ff",
+    "1791935555",
+    "41562000"
+  ],
+  "oracle.output-23088": [
+    "0x7a82467013f5dbf85174d8f9e9d875fc5f87c083d92aa255141dd6471c449ebd",
+    "1791932099",
+    "41560200"
+  ],
+  "oracle.output-23087": [
+    "0xa4676a0c82f788be3269891395e4023bb811df39505e7b8ebb58ef2d5950ab2a",
+    "1791928631",
+    "41558400"
+  ],
+  "oracle.output-23086": [
+    "0x2ea33aeb4cf09c8af27dfaf2f5e3b0c73a7608984f6cd1da54d08548b6371532",
+    "1791925559",
+    "41556600"
+  ],
+  "proposerCadence": {
+    "sampledRoots": 5,
+    "avgGapSeconds": 3555,
+    "maxGapSeconds": 4224
+  },
+  "deadlineMath": {
+    "finalizationSeconds": 86400,
+    "note": "class A: deadline = last root covering the user's block; once PROVEN, finalize needs no further proposer activity (timestamps only)"
+  },
+  "systemConfig": "0x5531DcfF39EC1ec727C4c5D2fc49835368F805a9",
+  "systemConfig.version": "1.10.0",
+  "systemConfig.owner": "0x4f72ee94B8ba3Be7F886565d3583A7F636c58B05",
+  "l2": {
+    "chainId": 81457,
+    "blockNumber": "41565982",
+    "latestBlockTimestamp": 1791941779,
+    "secondsSinceLatestBlock": 0
+  }
+}

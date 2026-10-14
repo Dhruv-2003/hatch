@@ -1,0 +1,61 @@
+{
+  "name": "op-mainnet",
+  "probedAt": "2026-10-14T01:39:50.734Z",
+  "portal": "0xbEb5Fc579115071764c7423A4f12eDde41f106Ed",
+  "l1BlockAtProbe": {
+    "number": "26187509",
+    "timestamp": "1791941987"
+  },
+  "portal.version": "5.8.0",
+  "portal.systemConfig": "0x229047fed2591dbec1eF1118d64F7aF3dB9EB290",
+  "portal.l2Oracle": {
+    "error": "ContractFunctionExecutionError: The contract function \"l2Oracle\" reverted.\n\nContract Call:\n  address:   0xbEb5Fc579115071764c7423A4f12eDde41f106Ed\n  function:  "
+  },
+  "portal.disputeGameFactory": "0xe5965Ab5962eDc7477C8520243A95517CD252fA9",
+  "class": "B/C (DisputeGameFactory)",
+  "disputeGameFactory": "0xe5965Ab5962eDc7477C8520243A95517CD252fA9",
+  "portal.respectedGameType": 9,
+  "portal.proofMaturityDelaySeconds": "604800",
+  "portal.finalizationPeriodSeconds": {
+    "error": "ContractFunctionExecutionError: The contract function \"finalizationPeriodSeconds\" reverted.\n\nContract Call:\n  address:   0xbEb5Fc579115071764c7423A4f12eDde41f10"
+  },
+  "portal.superchainConfig": "0x95703e0982140D16f8ebA6d158FccEde42f04a4C",
+  "superchainConfig.paused": false,
+  "withdrawalsPaused": false,
+  "gameTypeInterpretation": "game type 9 (non-legacy; resolve permissioned-ness from impl source / agent research)",
+  "dgf.gameImpls": "0x19AF533Cc2A2A55786DCB8672aA5717e64213208",
+  "dgf.gameCount": "20562",
+  "dgf.findLatestGames": [
+    {
+      "index": "20561",
+      "metadata": "0x00000009000000006aced8ef658b57f7dd31ae26661157b773dd4bd9f389fa98",
+      "timestamp": "1791940847",
+      "rootClaim": "0x1269acd47821447e283072a98db867f33bcc7cdca18f780c52461d433f41248d",
+      "extraData": "0x01000000006aced315000000000000000000000000000000000000000000000000000000000000000a9c4e87dca9f2509f7b1930df77da639021545078cd63a863b5ca573b587f5c3c"
+    },
+    {
+      "index": "20560",
+      "metadata": "0x00000009000000006acecac72bca59ddeb5b8a2584b3d45bef3aa1c05029000d",
+      "timestamp": "1791937223",
+      "rootClaim": "0x6024fcc3ea830054bd09baa5dd39e0074d696963f34c0770a65ebc8447911a49",
+      "extraData": "0x01000000006acec497000000000000000000000000000000000000000000000000000000000000000a9990c35ec1f35db272d2897f8951dbc9a7d57867c2903673a059d83a7991cac6"
+    },
+    {
+      "index": "20559",
+      "metadata": "0x00000009000000006acebcabfaecc1696f1782bdef346e29fa2137194a261f39",
+      "timestamp": "1791933611",
+      "rootClaim": "0xae2ad7bcbdcaf3f7c2b90fb45e18a463503eb60e79ea4aca46ea707421a190f1",
+      "extraData": "0x01000000006aceb709000000000000000000000000000000000000000000000000000000000000000acc076531b41662aecb2814a6d35037b56566755d47d0387a7466aea5d99603f5"
+    }
+  ],
+  "liveness": {
+    "latestGameIndex": 20561,
+    "latestGameProxy": "0x658b57f7dd31ae26661157b773dd4bd9f389fa98",
+    "gameCreatedAtL1Timestamp": 1791940847,
+    "secondsSinceLastGame": 1140,
+    "human": "fresh (19m ago)"
+  },
+  "systemConfig": "0x229047fed2591dbec1eF1118d64F7aF3dB9EB290",
+  "systemConfig.version": "4.0.0",
+  "systemConfig.owner": "0x847B5c174615B1B7fDF770882256e2D3E95b9D92"
+}

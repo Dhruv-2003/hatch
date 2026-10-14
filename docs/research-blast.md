@@ -70,8 +70,10 @@ L2 side: standard predeploy addresses for messenger (`0x...0007`), standard brid
 3. **Permissioned proposer, no challenger incentive structure.** Whitelisted proposer only.
    L2Beat's verdict is blunt: proposer failure ⇒ withdrawals frozen. This is exactly the
    class A risk hatch exists for.
-4. **`FINALIZATION_PERIOD_SECONDS` = 7 days** (upgraded from 12 via a new oracle
-   implementation). Verify on-chain, don't bake in.
+4. **`FINALIZATION_PERIOD_SECONDS` = 1 day on the live proxy** (verified on-chain
+   2026-10-14; L2Beat's "12→7 days" note describes older oracle implementations — the
+   current one says 86,400). Classic proof of "never bake in parameters": the probe reads
+   it live every time.
 5. **Instantly upgradable + pausable.** A 3/5 multisig (`0x4f72ee94B8ba3Be7F886565d3583A7F636c58B05`)
    can upgrade every core contract with no timelock and pause withdrawals via the portal.
    L2Beat: "no exit window". Hatch's liveness monitor should also watch for the withdrawals-
