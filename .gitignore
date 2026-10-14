@@ -5,3 +5,4 @@ chain.json
 withdrawal*.json
 .env
 .env.*
+.scan-*.json

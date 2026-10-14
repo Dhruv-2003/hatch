@@ -119,23 +119,39 @@ user exactly what could not be verified.
 
 ## Part 3 — Scan (`hatch scan <address>` equivalent)
 
-Two sides, both log-based, both **lower bounds** — never claim they are the full balance:
+```bash
+bun src/scan.ts <l1-address> --blocks 10000   # demo window; real runs: --days 14 or --from <block>
+```
 
-1. **What went in:** scan L1 logs in chunks (`eth_getLogs`; free-tier RPCs cap the range
-   at ~10 blocks, chunk accordingly and checkpoint the last-scanned block in a scratch
-   file) for `TransactionDeposited` on the portal, `ETHDepositInitiated` /
-   `ERC20DepositInitiated` on the L1 bridge, and `SentMessage` on the L1CrossDomainMessenger.
-2. **What came out:** L1 logs `WithdrawalFinalized` on the portal for this address.
-   Bridged-in minus finalized = a lower bound on what still needs to exit.
+Topic-only log scan over the whole L1 chain (no address filter — bridge/messenger
+addresses are chain-specific and we refuse to hardcode unprobed ones), chunked at 10
+blocks (free-tier RPC cap, adaptive halving on range errors) with a resume checkpoint.
+Handles BOTH `TransactionDeposited` shapes: the classic tuple event (v1 portals) and the
+opaqueData event (v2+, `0xb3813568…`) — a scanner that only knows one shape silently
+misses real deposits. Reports what went in (`TransactionDeposited` from/to, bridge
+`ETHDepositInitiated`/`ERC20DepositInitiated`, `SentMessage`) and what came out
+(`WithdrawalFinalized`). Everything is a **lower bound** — never present it as the true
+L2 balance. Keep the demo/scan window explicit and small when testing; full-history
+scans on free RPCs take minutes of 10-block chunks.
 
 If the L2 RPC is alive, additionally read native + token balances and check the L2
 `L2ToL1MessagePasser` (`0x4200000000000000000000000000000000000016`) for withdrawals the
 user already initiated but never proved (recovery case P1).
 
+Note for custom-bridge chains (Blast): deposits there route through a vault/yield
+manager rather than the portal, so L1 logs under-report — treat the scan as unreliable
+and say so in the plan.
+
 ## Part 4 — Plan (`hatch plan` equivalent)
 
-Produce a plan naming: class, every step with its command, gas on both sides, and this
-timeline math. **Compute the numbers from the probe + on-chain reads, never from memory.**
+```bash
+bun src/plan.ts <chain> --announce <ISO-date> --wd   # re-verifies liveness + params live
+```
+
+The planner reads the probe file, re-reads liveness/version/pauses on chain, and emits
+the plan. Produce a plan naming: class, every step with its command, gas on both sides,
+and this timeline math. **Compute the numbers from the probe + on-chain reads, never
+from memory.**
 
 Class A (oracle):
 ```
@@ -214,11 +230,23 @@ Scheduler patterns that work:
   Read the `MessagePassed` log from that tx's receipt, rebuild the withdrawal struct,
   then continue from `prove` (or `prove-super.ts`). Mostly L1-only work; the L2 just
   needs its receipt to exist.
-- **P2 — L2 alive enough to order txs but user can't sign there / UI gone:** generate
-  the forced-initiation calldata: an L1 `portal.depositTransaction{value: X}` whose
-  calldata calls the L2 message passer's `initiateWithdrawal`. Emit the calldata,
-  explain that it only completes if someone runs derivation and a covering root/game
-  exists, and stop — no automation beyond the calldata.
+- **P2 — L2 usable but user can't sign there / UI gone / sequencer censoring withdrawals:**
+  force-include the initiation FROM L1:
+
+  ```bash
+  bun src/force-include.ts --to <recipient> --amount <eth>            # dry-run: unsigned request + cast cmd
+  bun src/force-include.ts --to <recipient> --amount <eth> --send     # testnet throwaway key only
+  ```
+
+  Mechanism: an L1 `portal.depositTransaction` whose L2 execution calls the message
+  passer's `initiateWithdrawal`. The sequencer must still derive the deposit (force
+  inclusion guarantees it within the sequencing window even under censorship); after the
+  L2 `MessagePassed` log exists, continue with the normal prove → resolve → finalize
+  flow. Two era pitfalls live here (see troubleshooting): modern portals emit the v2
+  `TransactionDeposited(opaqueData)` event, and the message passer's `initiateWithdrawal`
+  is 3-arg (`target, gasLimit, data`) with msg.value as the value — the old 4-arg ABI
+  silently reverts. Custom-bridge chains (Blast) may blacklist `depositTransaction`
+  outright — say so in the plan before using this path there.
 - **P3 — stuck:** chain dead (no proposer, no games, derivation impossible), portal
   paused, blacklisted by a custom bridge, or class X. Report exactly what you found on
   chain, name the blocker, and do not promise a path. Honesty is the product.
@@ -235,7 +263,9 @@ Scheduler patterns that work:
 | finalize reverts `OptimismPortal_InvalidRootClaim` | game not yet resolved (or resolved CHALLENGER_WINS) | run `bun src/withdraw.ts resolve` after the challenger clock expires; check `status.onChain.game.status` |
 | finalize exits 3, `{"error":"proof not matured"}` | a gate hasn't passed: proof maturity or game finality delay | read `nextActionAt`; schedule the wake; nothing was sent |
 | finalize reverts for the *recipient*, proof was by someone else | portal checks `provenWithdrawals[wh][msg.sender]` | same address proves and finalizes, or use `finalizeWithdrawalTransactionExternalProof` |
-| `eth_getLogs` errors / empty results on free RPC | 10-block range cap | chunk scans; checkpoint last scanned block |
+| force-included deposit included on L2 but **status reverted, no `MessagePassed`** | old 4-arg `initiateWithdrawal(target,gasLimit,value,data)` calldata selector-mismatches the modern 3-arg signature — silent revert, the L1 deposit still charges you | build calldata with the 3-arg ABI (src/force-include.ts does); decode the L2 receipt to detect the failure before continuing |
+| `eth_getLogs` errors / empty results on free RPC | 10-block range cap | chunk scans (src/scan.ts does); checkpoint last scanned block |
+| scan finds no deposits for an address that definitely bridged | the portal emits the v2 `TransactionDeposited(opaqueData)` event, not the classic tuple one | scanner handles both (`0xb3813568…` topic); if you wrote your own scan, decode opaqueData (mint\|value\|gas\|isCreation\|data) |
 | portal `version()` looks like nothing on the tags list | version string ≠ release tag | strip build metadata, search tags `op-contracts/*`, read source at nearest release; note uncertainty in the plan |
 | custom bridge swallows the deposit (e.g. Blast yield manager) | chain-specific bridge holds funds in its own path | read the bridge's withdraw path at the probed version; record in plan; class X if unclear |
 
