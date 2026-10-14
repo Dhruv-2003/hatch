@@ -183,9 +183,25 @@ async function main() {
   }
   if (!covered) throw new Error(`no L2 block in ±${window} of checkpoint ts ${checkpointTs} matches the game's root claim — inspect game ${gameIndex}`);
 
-  // 3. coverage check — the withdrawal must be included in the covered block or earlier
+  // 3. coverage check — the withdrawal must be included in the covered block or earlier.
+  // NOT an error: games land on a ~15 min cadence, so exit 3 (gated) with the ETA and
+  // let the scheduler wake instead of retry-looping.
   if (covered.block.number < receipt.blockNumber) {
-    throw new Error(`newest game still covers block ${covered.block.number} < withdrawal block ${receipt.blockNumber}; wait for the next game (~15 min cadence)`);
+    let prevTs = 0;
+    try {
+      const [older] = await l1.readContract({ address: DGF, abi: DGF_ABI, functionName: "findLatestGames", args: [9, Number(count) - 2, 1] });
+      prevTs = Number(older[2]);
+    } catch { /* single-game chain — default cadence below */ }
+    const cadence = prevTs > 0 ? gameCreatedTs - prevTs : 900;
+    console.log(JSON.stringify({
+      gated: "no covering game yet",
+      detail: `newest game covers L2 block ${covered.block.number} < withdrawal block ${receipt.blockNumber}`,
+      withdrawalBlock: Number(receipt.blockNumber),
+      latestCoveredBlock: Number(covered.block.number),
+      nextGameEtaSeconds: Math.max(0, cadence - (Math.floor(Date.now() / 1000) - gameCreatedTs)),
+      note: "exit 3 — nothing sent. Schedule a wake at the ETA, re-run this, and re-check proposer liveness first (SKILL.md Part 6).",
+    }, null, 2));
+    process.exit(3);
   }
   console.log(`coverage OK: covered block ${covered.block.number} >= withdrawal block ${receipt.blockNumber}`);
 

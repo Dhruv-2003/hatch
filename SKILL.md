@@ -19,9 +19,12 @@ still landing, then resolve/finalize on schedule.
 Users say things like *"I've been using this chain for a while, they're shutting down,
 withdraw all my funds."* That is a complete instruction. Do NOT push planning questions
 back at the user; derive everything yourself and only ask for what you genuinely cannot
-derive: the **address** (one question, once) and an **RPC URL** if none is configured.
-Everything else — chain identity, proof system, deadlines, scan windows, amounts,
-timing, scheduling — is yours to work out from SKILL.md and chain state.
+derive — in **one compact round**, up front, so the user never sees a drip of questions:
+the **address(es)**, an **RPC URL** if none is configured (with pointers, Part 1), how
+**long** they've used the chain (sets the scan window, Part 3), and their preferred
+**signing route** (Part 0). Ask these together, once. Everything else — chain identity,
+proof system, deadlines, scan windows, amounts, timing, scheduling — is yours to work
+out from SKILL.md and chain state.
 
 The full autonomous loop for such an ask:
 
@@ -50,10 +53,16 @@ different chain (re-probe before trusting it).
 
 ## Part 0 — Hard rules (non-negotiable, apply to everything below)
 
-- **Never** ask for, store, or accept a private key or seed phrase. Signers are the
-  user's local machine (the tool emits unsigned tx requests), a throwaway test key the
-  user volunteers for testnets, or a keystore/ledger they operate themselves. Never
-  place a mainnet key in `.env`.
+- **Signing — ask, don't assume.** Never ask for, store, or accept a private key or
+  seed phrase in chat. Early in the flow, ask the user one question: *"How do you want
+  to sign? (a) you run the prepared command yourself, (b) foundry keystore, (c) ledger,
+  (d) a test env var you set yourself (testnets only)."* Then default to the
+  **command handover**: every tool prints the unsigned tx request AND the exact
+  `cast send …` command; the user runs it (keystore password, ledger button, or their
+  own env var — the key never touches argv, stdin, chat, or `.env` the agent writes),
+  pastes the tx hash back, and the agent picks up from the receipt. `--send` via
+  `TEST_KEY` in `.env` is a testnet-only convenience for when the user explicitly
+  volunteers a throwaway key — never the default, never on mainnet.
 - Only use contract addresses from `chains/<chain>.probe.json` produced by the probe.
   If the user pastes an address from anywhere else (search result, Discord, a "helpful"
   page), compare it to the probe output and refuse on mismatch.
@@ -64,12 +73,11 @@ different chain (re-probe before trusting it).
   recipient.
 - Always print the real (proposer-liveness based) deadline next to any announced UI
   deadline.
-- **Signing, in order of preference** (see `src/signer.ts`): `unsigned` output is the
-  default — every tool prints the full tx request and nothing is sent. `--signer ledger`
-  and `--signer keystore` emit the exact `cast send … --ledger / --from …` command; the
-  key stays on the user's device or in foundry's encrypted keystore. `--send` (direct
-  send via the throwaway `TEST_KEY` in the gitignored `.env`) is a **testnet-only**
-  convenience — never on mainnet. No keys ever touch argv, stdin, or chat.
+- **Signing, in order of preference** (see `src/signer.ts`): command handover is the
+  default (see the hard rule above). `--signer ledger` and `--signer keystore` emit the
+  exact `cast send … --ledger / --from …` command; the key stays on the user's device
+  or in foundry's encrypted keystore. `--send` (direct send via `TEST_KEY`) is
+  testnet-only. No keys ever touch argv, stdin, or chat.
 - Default to dry-run. A tx is only emitted or sent after explicit confirmation. Exit
   code 3 with a JSON `{"error": …}` body means "gated, nothing was sent".
 - Be honest about uncertainty. If the chain class is X (unknown) or the case is stuck
@@ -88,6 +96,19 @@ the **chain name or portal address**. Nothing else. If the user gave only an add
 that is the withdrawal owner — fine, the chain comes from `--chain` or is probed from a
 portal they point at.
 
+**Ask for RPC URLs explicitly — do not silently fall back to slow public endpoints.**
+Free-tier keys from Alchemy or Infura make scanning and probing dramatically faster and
+more reliable. Say it plainly, with pointers so any user can find it in a minute:
+
+> To read the chain I need an RPC endpoint (URL + key). Easiest: a free Alchemy
+> account → dashboard.alchemy.com → Create app → pick the chain → copy the HTTPS URL.
+> Infura (dashboard.infura.io) or any node provider works too. If you already have one,
+> paste it; if not, I can use public endpoints but scanning will be slow and
+> rate-limited.
+
+If the user has no key at all, proceed on public endpoints and say the scan is slower —
+do not block the whole flow waiting on a key for a read-only step.
+
 ```bash
 git clone https://github.com/Dhruv-2003/hatch && cd hatch
 bun install                # or: npm i && use npx tsx in place of bun
@@ -100,9 +121,11 @@ EOF
 chmod 600 .env
 ```
 
-`.env` is gitignored and never leaves the machine. If the user has no Alchemy key, any
-JSON-RPC URL works — edit `src/probe.ts`'s `TARGETS` (new chains) or `src/withdraw.ts`'s
-`L1_RPC`/`L2_RPC` (the flow) accordingly; public endpoints are fine for read-only work.
+`.env` is gitignored and never leaves the machine. The RPC URLs go in `.env` — if the
+user pasted full URLs, put them directly in the env lines and leave the keys blank in
+the template. If the user has no Alchemy key, any JSON-RPC URL works — edit
+`src/probe.ts`'s `TARGETS` (new chains) or `src/withdraw.ts`'s `L1_RPC`/`L2_RPC` (the
+flow) accordingly; public endpoints are fine for read-only work.
 
 If `bun` is missing: install it (`curl -fsSL https://bun.sh/install | bash`) or use
 `npx tsx src/<file>.ts` for every command below.
@@ -159,9 +182,26 @@ user exactly what could not be verified.
 
 ## Part 3 — Scan (`hatch scan <address>` equivalent)
 
+**The L1 scan is conditional, not default.** Decide from two facts:
+
+- **L2 RPC alive + user's funds are plain ETH** → skip the L1 scan. `l2-reader.ts`
+  (Part 3.5) gives the true native balance directly, which is strictly better than any
+  log scan. Announce this: "Your L2 is still readable, so I'm reading your balance
+  there — faster and exact."
+- **L1 scan is for:** ERC20/bridge discovery (the L2 side doesn't tell you which
+  tokens came in via which bridge), a dead or unreachable L2 RPC, or cross-checking
+  what already finalized. Then run it:
+
 ```bash
-bun src/scan.ts <l1-address> --blocks 10000   # demo window; real runs: --days 14 or --from <block>
+bun src/scan.ts <l1-address> --blocks 10000   # demo window; real runs: --days <N> or --from <block>
 ```
+
+**Derive the scan window from what the user told you**, not a fixed default: "I've
+been using this chain for a day" → `--days 2` (usage time + a small margin for
+finalized withdrawals). "Years" → `--days 30` as a first pass and widen only if
+results look truncated. Never default to weeks of scanning on a free-tier key —
+that is where rate-limit pain comes from, and Alchemy's free tier caps `eth_getLogs`
+at 10-block ranges regardless.
 
 Topic-only log scan over the whole L1 chain (no address filter — bridge/messenger
 addresses are chain-specific and we refuse to hardcode unprobed ones), chunked at 10
@@ -249,17 +289,23 @@ bun src/withdraw.ts resolve                      # game chains only, after the c
 bun src/withdraw.ts finalize                     # after BOTH gates pass; exit 3 = not mature yet
 ```
 
-Prove (super-roots chains) — what it does and why: it waits for a dispute game covering
-the withdrawal's L2 block, then decodes the game's `extraData` super-root preimage
+Prove (super-roots chains) — what it does and why: it decodes the newest dispute
+game's `extraData` super-root preimage
 (`0x01 ‖ uint64 checkpointTs ‖ uint256 chainId ‖ bytes32 perChainOutputRoot`), derives
 the covered L2 block from `checkpointTs`, and builds the portal's
 `OutputRootProof(version, stateRoot, messagePasserStorageRoot, latestBlockhash)` from the
-L2 block header — note the block hash goes **last**. If `prove-super.ts` works for the
-chain, use it. If the chain's game type differs, read the game contract's `extraData`
-layout at the probed version and adapt; the pattern holds even when the details don't.
+L2 block header — note the block hash goes **last**. It is **single-shot, not a retry
+loop**: if the newest game doesn't yet cover the withdrawal's L2 block, it exits 3 with
+a JSON body `{"gated": "no covering game yet", "nextGameEtaSeconds": …}` — games land
+on a fixed cadence you can compute from the last two games' timestamps (~15 min on
+OP Sepolia). Do not poll: schedule the retry (Part 6) for `nextGameEtaSeconds` and move
+on. Coverage is checked on chain at each run, so the ETA only needs to be roughly
+right. If `prove-super.ts` works for the chain, use it. If the chain's game type
+differs, read the game contract's `extraData` layout at the probed version and adapt;
+the pattern holds even when the details don't.
 
-Initiate/prove are not time-gated except by liveness — do them as early as possible.
-`resolve` and `finalize` are time-gated; schedule them (Part 6).
+Initiate/prove are not time-gated except by game cadence (prove) — do them as early
+as possible. `resolve` and `finalize` are time-gated; schedule them (Part 6).
 
 ## Part 6 — Schedule the waits (do not poll)
 
@@ -291,12 +337,33 @@ Scheduler patterns that work:
   then continue from `prove` (or `prove-super.ts`). Mostly L1-only work; the L2 just
   needs its receipt to exist.
 - **P2 — L2 usable but user can't sign there / UI gone / sequencer censoring withdrawals:**
-  force-include the initiation FROM L1:
+  force-include the initiation FROM L1. This path is **conditional — do not run it
+  preemptively.** Use it when (a) the user reports their L2 transactions are being
+  censored or not landing, (b) you submitted an initiation on L2 and can observe it was
+  not included (`l2-reader.ts` shows no receipt after the sequencing window should have
+  covered it), or (c) the L2 UI/signing is unavailable but the sequencer still derives
+  deposits. If the plain L2 initiation worked, skip this — normal flow is cheaper.
 
   ```bash
   bun src/force-include.ts --to <recipient> --amount <eth>            # dry-run: unsigned request + cast cmd
   bun src/force-include.ts --to <recipient> --amount <eth> --send     # testnet throwaway key only
+  bun src/force-include.ts --check <l1-tx-hash>                       # where did my deposit land?
   ```
+
+  `--check` tells you exactly which state the deposit is in and what to do next:
+
+  - `initiated-on-l2` → derivation worked; continue with `withdraw.ts rebuild <l2TxHash>`
+    then prove → resolve → finalize.
+  - `reverted-on-l2` → the deposit was derived but the L2 execution failed (the old
+    4-arg `initiateWithdrawal` calldata bug is the usual cause — see troubleshooting);
+    fix the calldata, submit a fresh deposit.
+  - `awaiting-derivation` → still inside the sequencing window; re-run `--check` later
+    (schedule it, Part 6).
+  - `derivation-stalled` → the deposit has sat past the 12h sequencing window with no
+    L2 execution. **No further L1 action helps — do not re-submit (it just burns
+    gas).** The recovery is infrastructure: someone must run a node to resume
+    derivation (README → research: the P2/P3 frontier), then a covering root/game, then
+    finalize. Report this honestly, per P3 below.
 
   Mechanism: an L1 `portal.depositTransaction` whose L2 execution calls the message
   passer's `initiateWithdrawal`. The sequencer must still derive the deposit (force
@@ -335,7 +402,7 @@ Everything above is reachable through one dispatcher (same flags, same output):
 
 ```bash
 bun src/cli.ts init <chain> | status | scan <addr> | l2 <addr> | plan <chain> \
-  | initiate | prove | resolve | finalize | rebuild <l2tx> | force-include | next-action | list
+  | initiate | prove | resolve | finalize | rebuild <l2tx> | force-include [--check <l1tx>] | next-action | list
 ```
 
 `--send` / `--signer` control signing (Part 0). Exit codes are stable across all commands.

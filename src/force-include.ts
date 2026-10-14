@@ -16,9 +16,10 @@
  * hold ETH in a yield manager and may blacklist depositTransaction for some contracts —
  * if the probe flagged custom-bridge deltas, say so in the plan before using this.
  */
-import { http, createPublicClient, createWalletClient, decodeEventLog, encodeFunctionData, formatEther, parseEther } from "viem";
+import { concat, decodeEventLog, encodeFunctionData, formatEther, padHex, parseAbiItem, parseEther, toHex } from "viem";
+import { http, createPublicClient, createWalletClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { getL2TransactionHash } from "viem/op-stack";
+import { getL2TransactionHash, type Hash } from "viem/op-stack";
 import { optimismSepolia, sepolia } from "viem/chains";
 import { readFileSync } from "node:fs";
 import { castSend, signerMode } from "./signer.ts";
@@ -62,6 +63,11 @@ const MSG_PASSER_ABI = [{
 }] as const;
 
 async function main() {
+  const checkIdx = process.argv.indexOf("--check");
+  if (checkIdx > -1) {
+    await checkDerivation(process.argv[checkIdx + 1] as Hash);
+    return;
+  }
   const get = (flag: string): string | undefined => {
     const i = process.argv.indexOf(flag);
     return i > -1 ? process.argv[i + 1] : undefined;
@@ -138,5 +144,70 @@ async function main() {
 }
 
 const EST_DEPOSIT_GAS = 180_000;
+
+// 12h sequencing window on current OP Stack — past it, derivation has stopped entirely
+// and no further L1 action can help; the fix is infrastructure (see README research).
+const SEQUENCING_WINDOW_SECONDS = 43_200;
+
+// viem's getL2TransactionHash expects a decoded v2-shaped log ({args:{from,to,opaqueData}}).
+// Classic-era portals emit the tuple event instead — synthesize the opaqueData packing
+// (mint 32B | value 32B | gas 8B | isCreation 1B | data) so both eras hash correctly.
+// Same event ABIs as scan.ts; keep the two definitions in sync.
+const TD_CLASSIC = parseAbiItem("event TransactionDeposited(address indexed from, address indexed to, (uint256,uint256,uint256,bool,bytes) tx)");
+
+function depositL2Hash(log: { blockHash: Hash; logIndex: number; topics: string[]; data: Hash }): Hash {
+  let from: Hash, to: Hash, opaqueData: Hash;
+  if (log.topics[0] === "0xb3813568d9991fc951961fcb4c784893574240a28925604d09fc577c55bb7c32") {
+    const ev = decodeEventLog({ abi: [TD_V2], data: log.data, topics: log.topics as [Hash] });
+    from = ev.args.from as Hash;
+    to = ev.args.to as Hash;
+    opaqueData = ev.args.opaqueData as Hash;
+  } else {
+    const ev = decodeEventLog({ abi: [TD_CLASSIC], data: log.data, topics: log.topics as [Hash] });
+    const [mint, value, gas, isCreation, data] = ev.args.tx as [bigint, bigint, bigint, boolean, Hash];
+    from = ev.args.from as Hash;
+    to = ev.args.to as Hash;
+    opaqueData = concat([
+      padHex(toHex(mint), 32), padHex(toHex(value), 32), padHex(toHex(gas), 8),
+      isCreation ? toHex(1, 1) : toHex(0, 1), data,
+    ]) as Hash;
+  }
+  return getL2TransactionHash({ log: { ...log, args: { from, to, opaqueData } } });
+}
+
+async function checkDerivation(l1TxHash: Hash) {
+  const l1 = createPublicClient({ chain: sepolia, transport: http(L1_RPC) });
+  const r1 = await l1.getTransactionReceipt({ hash: l1TxHash });
+  if (!r1) throw new Error(`no L1 receipt for ${l1TxHash}`);
+  const depLog = r1.logs.find((log) => log.address.toLowerCase() === PORTAL.toLowerCase());
+  if (!depLog) throw new Error("that L1 tx is not a portal deposit");
+  const l1Block = await l1.getBlock({ blockNumber: r1.blockNumber });
+  const l2Hash = depositL2Hash(depLog);
+  let l2Status: string;
+  let next: string[];
+  try {
+    const r2 = await createPublicClient({ chain: optimismSepolia, transport: http(L2_RPC) }).getTransactionReceipt({ hash: l2Hash });
+    if (r2.status === "success" && r2.logs.length > 0) {
+      l2Status = "initiated-on-l2";
+      next = [`bun src/withdraw.ts rebuild ${l2Hash}`, "then prove → resolve → finalize (SKILL.md Part 5)"];
+    } else {
+      l2Status = "reverted-on-l2";
+      next = ["the deposit was derived but the L2 execution reverted (old 4-arg initiateWithdrawal calldata is the usual cause — see SKILL.md troubleshooting)", "fix the calldata and submit a fresh depositTransaction"];
+    }
+  } catch {
+    const elapsed = Math.floor(Date.now() / 1000) - Number(l1Block.timestamp);
+    if (elapsed > SEQUENCING_WINDOW_SECONDS) {
+      l2Status = "derivation-stalled";
+      next = [
+        `L1 deposit landed ${Math.round(elapsed / 3600)}h ago, past the ${SEQUENCING_WINDOW_SECONDS / 3600}h sequencing window, with no L2 execution — derivation on this chain has stopped`,
+        "re-submitting depositTransaction will not help; the recovery is infrastructure: run a node to resume derivation (README → research: the P2/P3 frontier), then a covering root/game, then finalize",
+      ];
+    } else {
+      l2Status = "awaiting-derivation";
+      next = [`wait ~${Math.ceil((SEQUENCING_WINDOW_SECONDS - elapsed) / 60)} min worst case (sequencing window), then re-run: bun src/force-include.ts --check ${l1TxHash}`];
+    }
+  }
+  console.log(JSON.stringify({ l1TxHash, l2TxHash: l2Hash, status: l2Status, l1BlockNumber: Number(r1.blockNumber), next }, null, 2, (_, v) => typeof v === "bigint" ? v.toString() : v));
+}
 
 await main();
