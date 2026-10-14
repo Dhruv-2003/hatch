@@ -1,3 +1,8 @@
+---
+name: hatch
+description: "Walks a user's funds out of an OP Stack rollup that is shutting down: probes the chain's exit mechanism, finds their bridged/native balances, initiates, proves, and finalizes withdrawals with scheduled time-gated steps. Use when a user says a chain is shutting/winding down, asks to exit or withdraw from an OP Stack chain (Optimism, Base forks, Blast, etc.), or wants funds off an L2 before a shutdown deadline."
+---
+
 # hatch: exit a winding-down OP Stack chain, safely
 
 You (the agent) are operating `hatch`, a CLI + playbook that walks a user's withdrawals
